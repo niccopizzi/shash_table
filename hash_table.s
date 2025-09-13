@@ -1,8 +1,15 @@
 extern strdup
+extern malloc
+extern memset
+
+SHASH_TABLE_CAPACITY: equ 0x2710
 
 section .text
 
 global default_hash_func
+global shash_table_insert
+global shash_table_find
+global shash_table_init
 
 default_hash_func:
     push rbp
@@ -31,14 +38,86 @@ end_hash_func:
 shash_table_insert:
     push rbp
     mov rbp,rsp
+    mov r8,[rdi + 8] ;load the pointer to the function
+    push rdi
+    mov rdi,rsi
+    call r8 ;call the hash function
+    pop rdi
+    mov r9,rdx ;save the 3rd argument
+    mov rcx,[rdi + 16]
+    xor rdx,rdx
+    div rcx ;div rax/HASH_CAPACITY
+    push rdx ;save reminder
+    push rdi ;save hash_table pointer
+    mov rdi,r9
+    call strdup wrt ..plt
+    pop rdi
+    pop r8 ;get back index of key to insert
+    mov r9, [rdi] ;store the table pointer
+    lea r9,[r9 + r8*8]
+    mov [r9], rax ;store the value at index
+    mov rsp,rbp
+    pop rbp
+    ret
+
+;rdi stores the pointer to the hash table, rsi the key to find
+shash_table_find:
+    push rbp
+    mov rbp,rsp
     mov r8,[rdi + 8]
     push rdi
     mov rdi,rsi
-    call r8
+    call r8 ;get hash value of key passed
     pop rdi
-    push rdx ;save the 3rd argument
-    mov r8,[rdi + 24]
-    div r8 ;div rax/HASH_CAPACITY
-    push rdx ;save reminder
-    call strdup wrt .. plt
-    
+    xor rdx,rdx
+    mov rcx,[rdi + 16] ;/get capacity of the hash table
+    div rcx ;rdx stores the reminder of hash/capacity
+    mov rax,[rdi] ;load the table pointer
+    lea rax,[rax + rdx * 8]
+    mov rax,[rax]
+    pop rbp
+    ret
+
+shash_table_init:
+    push rbp
+    mov rbp,rsp
+    cmp rdi,0x0
+    je init_fail
+    cmp rsi,0x0
+    je  assign_default_func
+    mov [rdi + 8], rsi
+    jmp assign_capacity
+assign_default_func:
+    lea rax,[rel default_hash_func]
+    mov qword [rdi + 8], rax
+assign_capacity:
+    cmp rdx,0x0
+    je  assign_default_capacity
+    mov [rdi + 16], rdx
+    jmp allocate_mem
+assign_default_capacity:
+    mov qword [rdi + 16],SHASH_TABLE_CAPACITY
+allocate_mem:
+    push rdi
+    mov rdi,[rdi + 16]
+    shl rdi,0x3
+    call malloc wrt ..plt
+    cmp rax,0x0
+    je init_fail
+    pop rdi
+    mov [rdi],rax
+    mov qword [rdi + 24], 0x0
+    mov rdx,[rdi + 16]
+    shl rdx,0x3
+    mov rdi,[rdi]
+    xor rsi,rsi
+    call memset wrt ..plt
+    mov eax,0x1
+    jmp end_shash_init
+init_fail:
+    mov eax,0x0
+
+end_shash_init:
+    mov rsp,rbp
+    pop rbp
+    ret
