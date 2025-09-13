@@ -5,8 +5,6 @@
 #include <stddef.h>
 #include <stdbool.h>
 
-#define HASH_INITIAL_CAPACITY 10000
-
 typedef struct 
 {
     char**      table;
@@ -30,5 +28,6 @@ bool shash_table_init(hash_table* ht, uint64_t (*hash_func) (char *),
 
 extern __attribute__((sysv_abi))
 void shash_table_clear(hash_table* ht);
+
 #endif
 

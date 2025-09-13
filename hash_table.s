@@ -1,6 +1,7 @@
 extern strdup
 extern malloc
 extern memset
+extern free
 
 SHASH_TABLE_CAPACITY: equ 0x2710
 
@@ -10,6 +11,7 @@ global default_hash_func
 global shash_table_insert
 global shash_table_find
 global shash_table_init
+global shash_table_clear
 
 default_hash_func:
     push rbp
@@ -116,8 +118,43 @@ allocate_mem:
     jmp end_shash_init
 init_fail:
     mov eax,0x0
-
 end_shash_init:
     mov rsp,rbp
+    pop rbp
+    ret
+
+;function to free the memory used in the table and set everything else to 0
+;only parameter is the table pointer 
+shash_table_clear:
+    push rbp
+    mov rbp,rsp
+    cmp rdi,0x0
+    je end_shash_clear
+    xor rax,rax
+    mov r8,rdi
+shash_loop:
+    cmp rax,[r8 + 16]
+    je loop_end
+    mov rdi,[r8]
+    lea rdi,[rdi + rax * 8]
+    mov rdi,[rdi]
+    inc rax
+    cmp rdi,0x0
+    je shash_loop
+    push r8
+    push rax
+    call free wrt ..plt
+    pop rax
+    pop r8
+    jmp shash_loop 
+
+loop_end:
+    mov qword [r8 + 8],0x0
+    mov qword [r8 + 16],0x0
+    mov qword [r8 + 24],0x0
+    mov rdi,[r8]
+    mov qword [r8],0x0
+    call free wrt ..plt
+end_shash_clear:
     pop rbp
     ret
